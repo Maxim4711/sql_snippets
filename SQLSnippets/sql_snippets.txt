@@ -1,0 +1,98 @@
+@@ My first snippet @@
+WITH versions AS (
+  SELECT 19 major, LEVEL + 2 minor FROM dual CONNECT BY LEVEL <= 23 UNION ALL
+  SELECT 21, LEVEL + 2 FROM dual CONNECT BY LEVEL <= 13 UNION ALL
+  SELECT 23, LEVEL + 3 FROM dual CONNECT BY LEVEL <= 3
+)
+SELECT
+  'https://download.oracle.com/otn_software/' || 
+  CASE WHEN p.COLUMN_VALUE LIKE '%windows%' THEN 'nt' ELSE 'linux' END || 
+  '/instantclient/' ||
+  v.major || v.minor || '000' || CASE v.major WHEN 23 THEN '0' END || 
+  '/instantclient-' || s.COLUMN_VALUE || '-' || p.COLUMN_VALUE || '-' ||
+  v.major || '.' || v.minor || '.0.' || 
+  NVL(d.COLUMN_VALUE, '0.0dbru') || '.zip' url
+FROM versions v
+CROSS JOIN TABLE(sys.odcivarchar2list('linux', 'linux.x64', 'nt', 'windows.64')) p
+CROSS JOIN TABLE(sys.odcivarchar2list('basic', 'sqlplus', 'tools', 'sdk', 'jdbc', 'odbc')) s
+LEFT JOIN (
+  SELECT ROWNUM + 3 minor, COLUMN_VALUE
+  FROM TABLE(sys.odcivarchar2list('24.05', '24.07', '24.10'))
+) d ON v.major = 23 AND v.minor = d.minor
+order by v.major,v.minor,p.column_value,s.column_value
+@@ my second snippet @@
+  CASE v.major 
+    WHEN 23 THEN 
+      CASE v.minor
+        WHEN 4 THEN '24.05'
+        WHEN 5 THEN '24.07'
+        WHEN 6 THEN '24.10'
+      END
+    ELSE '0.0dbru' 
+  END || '.zip' url
+@@ blabla @@
+WITH versions AS (
+  SELECT 19 major, LEVEL + 2 minor FROM dual CONNECT BY LEVEL <= 23 UNION ALL
+  SELECT 21, LEVEL + 2 FROM dual CONNECT BY LEVEL <= 13 UNION ALL
+  SELECT 23, LEVEL + 3 FROM dual CONNECT BY LEVEL <= 3
+)
+SELECT
+  'https://download.oracle.com/otn_software/' || 
+  CASE WHEN p.COLUMN_VALUE LIKE '%windows%' THEN 'nt' ELSE 'linux' END || 
+  '/instantclient/' ||
+  v.major || v.minor || '000' || CASE v.major WHEN 23 THEN '0' END || 
+  '/instantclient-' || s.COLUMN_VALUE || '-' || p.COLUMN_VALUE || '-' ||
+  v.major || '.' || v.minor || '.0.' || 
+  NVL(d.COLUMN_VALUE, '0.0dbru') || '.zip' url
+FROM versions v
+CROSS JOIN TABLE(sys.odcivarchar2list('linux', 'linux.x64', 'nt', 'windows.64')) p
+CROSS JOIN TABLE(sys.odcivarchar2list('basic', 'sqlplus', 'tools', 'sdk', 'jdbc', 'odbc')) s
+LEFT JOIN (
+  SELECT ROWNUM + 3 minor, COLUMN_VALUE
+  FROM TABLE(sys.odcivarchar2list('24.05', '24.07', '24.10'))
+) d ON v.major = 23 AND v.minor = d.minor
+order by v.major,v.minor,p.column_value,s.column_value
+@@ Test @@
+WITH versions AS (
+  SELECT 19 major, LEVEL + 2 minor FROM dual CONNECT BY LEVEL <= 23 UNION ALL
+  SELECT 21, LEVEL + 2 FROM dual CONNECT BY LEVEL <= 13 UNION ALL
+  SELECT 23, LEVEL + 3 FROM dual CONNECT BY LEVEL <= 3
+)
+SELECT
+  'https://download.oracle.com/otn_software/' || 
+  CASE WHEN p.COLUMN_VALUE LIKE '%windows%' THEN 'nt' ELSE 'linux' END || 
+  '/instantclient/' ||
+  v.major || v.minor || '000' || CASE v.major WHEN 23 THEN '0' END || 
+  '/instantclient-' || s.COLUMN_VALUE || '-' || p.COLUMN_VALUE || '-' ||
+  v.major || '.' || v.minor || '.0.' || 
+  NVL(d.COLUMN_VALUE, '0.0dbru') || '.zip' url
+FROM versions v
+CROSS JOIN TABLE(sys.odcivarchar2list('linux', 'linux.x64', 'nt', 'windows.64')) p
+CROSS JOIN TABLE(sys.odcivarchar2list('basic', 'sqlplus', 'tools', 'sdk', 'jdbc', 'odbc')) s
+LEFT JOIN (
+  SELECT ROWNUM + 3 minor, COLUMN_VALUE
+  FROM TABLE(sys.odcivarchar2list('24.05', '24.07', '24.10'))
+) d ON v.major = 23 AND v.minor = d.minor
+order by v.major,v.minor,p.column_value,s.column_value
+@@ Test #2 @@
+WITH versions AS (
+  SELECT 19 major, LEVEL + 2 minor FROM dual CONNECT BY LEVEL <= 23 UNION ALL
+  SELECT 21, LEVEL + 2 FROM dual CONNECT BY LEVEL <= 13 UNION ALL
+  SELECT 23, LEVEL + 3 FROM dual CONNECT BY LEVEL <= 3
+)
+SELECT
+  'https://download.oracle.com/otn_software/' || 
+  CASE WHEN p.COLUMN_VALUE LIKE '%windows%' THEN 'nt' ELSE 'linux' END || 
+  '/instantclient/' ||
+  v.major || v.minor || '000' || CASE v.major WHEN 23 THEN '0' END || 
+  '/instantclient-' || s.COLUMN_VALUE || '-' || p.COLUMN_VALUE || '-' ||
+  v.major || '.' || v.minor || '.0.' || 
+  NVL(d.COLUMN_VALUE, '0.0dbru') || '.zip' url
+FROM versions v
+CROSS JOIN TABLE(sys.odcivarchar2list('linux', 'linux.x64', 'nt', 'windows.64')) p
+CROSS JOIN TABLE(sys.odcivarchar2list('basic', 'sqlplus', 'tools', 'sdk', 'jdbc', 'odbc')) s
+LEFT JOIN (
+  SELECT ROWNUM + 3 minor, COLUMN_VALUE
+  FROM TABLE(sys.odcivarchar2list('24.05', '24.07', '24.10'))
+) d ON v.major = 23 AND v.minor = d.minor
+order by v.major,v.minor,p.column_value,s.column_value
