@@ -2,7 +2,7 @@
 -- Variables
 local AddMenu = ...
 local plsql = plsql
-local SYS, IDE, SQL = plsql.sys, plsql.ide, plsql.sql
+local SYS, IDE = plsql.sys, plsql.ide
 local ShowMessage = plsql.ShowMessage
 
 -- IUP initialization
@@ -10,23 +10,54 @@ local iup_initialized = false
 local function init_iup()
     if iup_initialized then return true end
     
-    local path = plsql.RootPath() .. '\\clibs\\'
-    local iup_core = package.loadlib(path..'iup.dll', 'IupOpen')
+    local clibs = plsql.RootPath() .. '\\clibs\\'
+    
+    -- Load core IUP
+    local iup_core, err = package.loadlib(clibs .. 'iup.dll', 'IupOpen')
     if not iup_core then
-        ShowMessage("Failed to load IUP")
+        ShowMessage("Failed to load IUP: " .. tostring(err))
         return false
     end
-    
     iup_core()
-    local iup_init = package.loadlib(path..'iuplua51.dll', 'luaopen_iuplua')
+    
+    -- Load IUP Lua bindings
+    local iup_init, err = package.loadlib(clibs .. 'iuplua51.dll', 'luaopen_iuplua')
     if not iup_init then
-        ShowMessage("Failed to load IUP Lua bindings")
+        ShowMessage("Failed to load IUP Lua bindings: " .. tostring(err))
         return false
     end
-    
     iup_init()
+    
     iup_initialized = true
     return true
+end
+
+-- Get window text (selected or all)
+local function getWindowText()
+    -- Check window type first
+    local wtype = IDE.GetWindowType()
+    if wtype == 0 then return nil end
+
+    -- First try selected text
+    local text = IDE.GetSelectedText()
+    if text and text ~= "" then return text end
+    
+    -- If no selection, get all text
+    text = IDE.GetText()
+    return text
+end
+
+-- Helper function to normalize line endings
+local function normalize_text(text)
+    if not text then return "" end
+    -- Convert to single \n line endings and trim spaces
+    text = text:gsub('\r\n', '\n')
+    text = text:gsub('\r', '\n')
+    -- Remove trailing spaces from lines
+    text = text:gsub(' *\n', '\n')
+    -- Trim start/end
+    text = text:match('^%s*(.-)%s*$')
+    return text
 end
 
 -- Get snippets file path
@@ -34,21 +65,62 @@ local function get_snippets_file()
     return plsql.RootPath() .. '\\SQLSnippets\\sql_snippets.txt'
 end
 
+-- Helper function to read all snippets
+local function readSnippets()
+    local snippets = {}
+    local file = io.open(get_snippets_file(), "r")
+    if not file then return snippets end
+    
+    local currentName = nil
+    local currentSQL = {}
+    
+    for line in file:lines() do
+        local snippetName = line:match("^@@ (.+) @@$")
+        if snippetName then
+            if currentName and #currentSQL > 0 then
+                snippets[currentName] = table.concat(currentSQL, '\n')
+            end
+            currentName = snippetName
+            currentSQL = {}
+        elseif currentName and line ~= "" then
+            table.insert(currentSQL, line)
+        end
+    end
+    
+    if currentName and #currentSQL > 0 then
+        snippets[currentName] = table.concat(currentSQL, '\n')
+    end
+    
+    file:close()
+    return snippets
+end
+
 -- Helper function to save snippet
 local function saveSnippet(name, sql)
-    -- Create directory if it doesn't exist
+    -- Create directory if needed
     local dir = plsql.RootPath() .. '\\SQLSnippets'
     os.execute('mkdir "' .. dir .. '" 2>nul')
     
-    -- Append to file
-    local file = io.open(get_snippets_file(), "a")
+    -- Normalize SQL text
+    sql = normalize_text(sql)
+    if sql == "" then return false end
+    
+    -- Read existing snippets
+    local snippets = readSnippets()
+    snippets[name] = sql
+    
+    -- Write all snippets
+    local file = io.open(get_snippets_file(), "w")
     if not file then
         ShowMessage("Cannot open snippets file for writing")
         return false
     end
     
-    file:write("@@ " .. name .. " @@\n")
-    file:write(sql .. "\n")
+    for sname, ssql in pairs(snippets) do
+        file:write("@@ " .. sname .. " @@\n")
+        file:write(ssql .. "\n\n")
+    end
+    
     file:close()
     return true
 end
@@ -56,23 +128,20 @@ end
 -- Add Snippet
 do
     local function AddSnippet()
-        -- Check window type first
-        local windowType = IDE.GetWindowType()
-        if windowType == 0 then
+        -- Get window text
+        local sql = getWindowText()
+        if not sql then
             ShowMessage("No active window")
             return
         end
-
-        -- Try to get selected text
-        local selectedSQL = IDE.GetSelectedText()
-        if not selectedSQL or selectedSQL == "" then
-            ShowMessage("Please select SQL text first")
+        if sql == "" then
+            ShowMessage("No SQL text available")
             return
         end
-
+        
         -- Initialize IUP
         if not init_iup() then return end
-
+        
         -- Create dialog
         local dlg
         local nameInput = iup.text{value="", expand="YES"}
@@ -80,7 +149,7 @@ do
         local function okCallback()
             local name = nameInput.value
             if name and name ~= "" then
-                if saveSnippet(name, selectedSQL) then
+                if saveSnippet(name, sql) then
                     ShowMessage("Snippet saved successfully")
                 end
                 dlg:hide()
@@ -115,8 +184,122 @@ end
 -- Recall Snippet
 do
     local function RecallSnippet()
-        ShowMessage("Recall snippet clicked")
+        -- Initialize IUP
+        if not init_iup() then return end
+        
+        -- Read snippets
+        local snippets = readSnippets()
+        
+        -- Get sorted names
+        local names = {}
+        for name, _ in pairs(snippets) do
+            table.insert(names, name)
+        end
+        table.sort(names)
+        
+        if #names == 0 then
+            ShowMessage("No snippets available")
+            return
+        end
+
+        -- Create dialog
+        local dlg
+        local list = iup.list{
+            expand="YES",
+            visiblelines="10",
+            visiblecolumns="20",
+            dropdown="NO",
+            multiple="NO"
+        }
+        
+        local preview = iup.text{
+            multiline="YES",
+            expand="YES",
+            readonly="YES",
+            visiblelines="15",
+            visiblecolumns="50",
+            value=""
+        }
+        
+        -- Populate list
+        for i, name in ipairs(names) do
+            list[i] = name
+        end
+        -- Select first item
+        list.value = "1"
+        preview.value = snippets[names[1]]
+        
+        -- Update preview when selection changes
+        function list:action(text, pos, state)
+            if state == 1 then
+                local idx = tonumber(list.value)
+                if idx and names[idx] then
+                    local name = names[idx]
+                    preview.value = snippets[name] or ""
+                end
+            end
+        end
+        
+        local function insertCallback()
+            local idx = tonumber(list.value)
+            if not idx then
+                ShowMessage("Please select a snippet")
+                return
+            end
+            
+            local name = names[idx]
+            if not name then
+                ShowMessage("Invalid selection")
+                return
+            end
+            
+            local sql = snippets[name]
+            if not sql then
+                ShowMessage("Failed to get snippet content")
+                return
+            end
+
+            if IDE.GetWindowType() > 0 then
+                IDE.SetText(sql)
+                dlg:hide()
+            else
+                ShowMessage("No active window to insert SQL")
+            end
+        end
+        
+        dlg = iup.dialog{
+            iup.vbox{
+                iup.hbox{
+                    iup.vbox{
+                        iup.label{title="Available Snippets:"},
+                        list,
+                    },
+                    iup.vbox{
+                        iup.label{title="Preview:"},
+                        preview,
+                    },
+                    margin="10x10",
+                    gap="10"
+                },
+                iup.hbox{
+                    iup.button{title="Insert", action=insertCallback},
+                    iup.button{title="Close", action=function() dlg:hide() end},
+                    margin="10x10",
+                    gap="10"
+                },
+                margin="10x10"
+            },
+            title="Recall SQL Snippet",
+            size="600x400",
+            resize="YES",
+            maxbox="YES"
+        }
+        
+        dlg:show()
+        iup.MainLoop()
+        dlg:destroy()
     end
+    
     AddMenu(RecallSnippet, "Lua / SQL Snippets / Recall Snippet")
 end
 
