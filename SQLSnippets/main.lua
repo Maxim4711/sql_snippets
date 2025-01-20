@@ -80,7 +80,7 @@ end
 
 -- Get snippets file path
 local function get_snippets_file()
-    return plsql.RootPath() .. '\\SQLSnippets\\sql_snippets.txt'
+    return plsql.RootPath() .. '\\SQLSnippets\\snippets.sql'
 end
 
 -- Helper function to read all snippets
@@ -93,14 +93,14 @@ local function readSnippets()
     local currentSQL = {}
     
     for line in file:lines() do
-        local snippetName = line:match("^@@ (.+) @@$")
+        local snippetName = line:match("^--@@ (.+) @@--(.+)$")
         if snippetName then
             if currentName and #currentSQL > 0 then
                 snippets[currentName] = table.concat(currentSQL, '\n')
             end
             currentName = snippetName
             currentSQL = {}
-        elseif currentName and line ~= "" then
+        elseif currentName then
             table.insert(currentSQL, line)
         end
     end
@@ -135,7 +135,7 @@ local function saveSnippet(name, sql)
     end
     
     for sname, ssql in pairs(snippets) do
-        file:write("@@ " .. sname .. " @@\n")
+        file:write("--@@ " .. sname .. " @@--\n")
         file:write(ssql .. "\n\n")
     end
     
