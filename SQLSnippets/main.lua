@@ -5,8 +5,26 @@ local plsql = plsql
 local SYS, IDE = plsql.sys, plsql.ide
 local ShowMessage = plsql.ShowMessage
 
--- IUP initialization
+-- IUP handling
 local iup_initialized = false
+local current_dlg = nil  -- Keep track of current dialog
+
+local function cleanup_iup()
+    if current_dlg then
+        current_dlg:destroy()
+        current_dlg = nil
+    end
+    if iup_initialized then
+        iup.Close()
+        iup_initialized = false
+    end
+end
+
+-- Add OnDeactivate handler to ensure cleanup
+local OnDeactivate = function()
+    cleanup_iup()
+end
+
 local function init_iup()
     if iup_initialized then return true end
     
